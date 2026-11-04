@@ -1,0 +1,22 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+node_modules/
+.venv/
+venv/
+dist/
+build/
+.next/
+*.db
+*.sqlite
+.bot_watcher.log
+
+# === GEMBOK BAJA PREMAN (ANTI BOCOR) ===
+_sumber_blueprint/
+logs/
+*.pem
+*.key
+credentials.json
+client_secret.json
+auth_*.json
