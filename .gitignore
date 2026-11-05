@@ -1,24 +1,16 @@
-.env
-.env.*
-!.env.example
-__pycache__/
-node_modules/
-.venv/
-venv/
-dist/
-build/
-.next/
-*.db
-*.sqlite
-.bot_watcher.log
+# =================================================================
+# GEMBOK TOTAL (WHITELIST MODE)
+# Otomatis menyembunyikan SEMUA file & folder lama maupun baru
+# yang dibuat oleh bot di masa depan agar tetap di dalam Codespace.
+# =================================================================
+*
+*/
 
-# === GEMBOK BAJA PREMAN (ANTI BOCOR) ===
-_sumber_blueprint/
-logs/
-*.pem
-*.key
-credentials.json
-client_secret.json
-auth_*.json
-.bot_engine/cache_mentahan_utuh.json
-antrean_tumpahan_mentahan.json
+# =================================================================
+# DAFTAR PUTIH (Hanya file di bawah ini yang boleh tampil di Publik)
+# =================================================================
+!.gitignore
+!README.md
+!.env.example
+!publik/
+!publik/**
