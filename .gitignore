@@ -20,3 +20,5 @@ logs/
 credentials.json
 client_secret.json
 auth_*.json
+.bot_engine/cache_mentahan_utuh.json
+antrean_tumpahan_mentahan.json
