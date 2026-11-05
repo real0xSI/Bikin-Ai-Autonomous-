@@ -1,14 +1,8 @@
-# =================================================================
-# GEMBOK TOTAL (WHITELIST MODE)
-# Otomatis menyembunyikan SEMUA file & folder lama maupun baru
-# yang dibuat oleh bot di masa depan agar tetap di dalam Codespace.
-# =================================================================
+# === GEMBOK TOTAL (WHITELIST MODE PREMAN) ===
 *
 */
 
-# =================================================================
-# DAFTAR PUTIH (Hanya file di bawah ini yang boleh tampil di Publik)
-# =================================================================
+# === DAFTAR PUTIH PUBLIK ===
 !.gitignore
 !README.md
 !.env.example
