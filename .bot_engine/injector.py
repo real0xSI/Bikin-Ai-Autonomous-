@@ -6,8 +6,53 @@ FILE_KERAMAT_JANGAN_DISENTUH_GOBLOG = {
     "injector.py",
     "auditor.py",
     "healer.py",
-    "sorter.py", "enricher.py",
+    "sorter.py",
+    "enricher.py",
 }
+
+POLA_HEADER_FILE = re.compile(
+    r"^\s*(?:#|//|--|/\*)\s*(FILE|PATH|FILEPATH|APPEND|PATCH)\s*:\s*([a-zA-Z0-9_./-]+)",
+    re.IGNORECASE,
+)
+POLA_PAGAR_MD = re.compile(r"^\s*\x60{3}[a-zA-Z0-9_-]*\s*$")
+
+def _simpan_satu_file_preman(target_path: str, mode: str, baris_kode: list[str]) -> str | None:
+    # Bersihkan pagar ``` di paling atas atau paling bawah blok kode jika ikut terbawa
+    while baris_kode and POLA_PAGAR_MD.match(baris_kode[0]):
+        baris_kode.pop(0)
+    while baris_kode and POLA_PAGAR_MD.match(baris_kode[-1]):
+        baris_kode.pop()
+
+    jalur_bersih = Path(target_path.strip().lstrip("/"))
+    if jalur_bersih.name in FILE_KERAMAT_JANGAN_DISENTUH_GOBLOG:
+        return None
+
+    jalur_bersih.parent.mkdir(parents=True, exist_ok=True)
+    jeroan_kode = "\n".join(baris_kode).strip("\n") + "\n"
+
+    if mode == "APPEND" and jalur_bersih.exists():
+        with open(jalur_bersih, "a", encoding="utf-8") as f_asu:
+            f_asu.write("\n" + jeroan_kode)
+        label_mode = "SAMBUNG_BAWAH"
+    elif mode == "PATCH" and jalur_bersih.exists():
+        teks_asli = jalur_bersih.read_text(encoding="utf-8")
+        potongan_tambalan = re.findall(
+            r"<<<SEARCH\n(.*?)\n===REPLACE\n(.*?)\n>>>END",
+            jeroan_kode,
+            re.DOTALL,
+        )
+        for blok_cari, blok_ganti in potongan_tambalan:
+            if blok_cari in teks_asli:
+                teks_asli = teks_asli.replace(blok_cari, blok_ganti, 1)
+        jalur_bersih.write_text(teks_asli, encoding="utf-8")
+        label_mode = "TAMBAL_TENGAH"
+    else:
+        jalur_bersih.write_text(jeroan_kode, encoding="utf-8")
+        label_mode = "TIMPA_TOTAL"
+
+    jml_baris = len(jalur_bersih.read_text(encoding="utf-8", errors="ignore").splitlines())
+    print(f"🔥 [{label_mode}] {jalur_bersih} kelar disuntik kehed! (Total: {jml_baris:,} baris)")
+    return str(jalur_bersih)
 
 def suntik_kode_preman_kehed(bacotan_ai_md: str) -> list[str]:
     file_diobok_obok = []
@@ -16,9 +61,9 @@ def suntik_kode_preman_kehed(bacotan_ai_md: str) -> list[str]:
     for cocok_dir in re.finditer(r"^@MKDIR:\s*(.+)$", bacotan_ai_md, re.MULTILINE | re.IGNORECASE):
         jalur_kandang = Path(cocok_dir.group(1).strip().lstrip("/"))
         jalur_kandang.mkdir(parents=True, exist_ok=True)
-        penjaga_kandang = jalur_kandang / ".gitkeep"
+        penjaga = jalur_kandang / ".gitkeep"
         if not any(jalur_kandang.iterdir()):
-            penjaga_kandang.touch()
+            penjaga.touch()
         print(f"📁 [BIKIN KANDANG ANJING] {jalur_kandang}/ siap dipake!")
 
     # 2. Bantai file sampah (@DELETE: path/ke/file)
@@ -28,62 +73,38 @@ def suntik_kode_preman_kehed(bacotan_ai_md: str) -> list[str]:
             jalur_modar.unlink()
             print(f"🗑️ [BANTAI FILE TAI] {jalur_modar} udah dimusnahkan kehed!")
 
-    # 3. Bedah blok kode (# FILE:, # APPEND:, atau # PATCH:)
-    pola_blok_bangsat = re.compile(
-        r"\x60{3}[a-zA-Z0-9_-]*(?:\s+(?:filepath:|file:|path:)?\s*([a-zA-Z0-9_./-]+))?\n(.*?)\x60{3}",
-        re.DOTALL,
-    )
+    # 3. Pemotong Baris-demi-Baris (Kebal copas tanpa backtick & kebal multi-# FILE dalam 1 blok!)
+    target_aktif = None
+    mode_aktif = "WRITE"
+    keranjang_baris = []
 
-    for tangkapan_asu in pola_blok_bangsat.finditer(bacotan_ai_md):
-        jalur_kepala, jeroan_kode_anjing = tangkapan_asu.group(1), tangkapan_asu.group(2)
-        target_operasi_sia = jalur_kepala
-        mode_eksekusi_goblog = "TIMPA_TOTAL"
-
-        baris_jeroan = jeroan_kode_anjing.splitlines()
-        baris_pertama_kehed = baris_jeroan[0].strip() if baris_jeroan else ""
-
-        cek_tag_dalam = re.search(
-            r"^(?:#|//|--|/\*)\s*(?:FILE|PATH|FILEPATH|APPEND|PATCH)\s*:\s*([a-zA-Z0-9_./-]+)",
-            baris_pertama_kehed,
-            re.IGNORECASE,
-        )
-        if cek_tag_dalam:
-            target_operasi_sia = cek_tag_dalam.group(1)
-            tag_kapital_anjing = baris_pertama_kehed.upper()
-            if "APPEND" in tag_kapital_anjing:
-                mode_eksekusi_goblog = "SAMBUNG_BAWAH"
-            elif "PATCH" in tag_kapital_anjing:
-                mode_eksekusi_goblog = "TAMBAL_TENGAH"
-            jeroan_kode_anjing = "\n".join(baris_jeroan[1:]) + ("\n" if jeroan_kode_anjing.endswith("\n") else "")
-
-        if not target_operasi_sia:
+    for brs in bacotan_ai_md.splitlines():
+        cek_header = POLA_HEADER_FILE.match(brs)
+        if cek_header:
+            if target_aktif:
+                hasil = _simpan_satu_file_preman(target_aktif, mode_aktif, keranjang_baris)
+                if hasil and hasil not in file_diobok_obok:
+                    file_diobok_obok.append(hasil)
+            jenis_tag = cek_header.group(1).upper()
+            target_aktif = cek_header.group(2).strip()
+            mode_aktif = "APPEND" if "APPEND" in jenis_tag else ("PATCH" if "PATCH" in jenis_tag else "WRITE")
+            keranjang_baris = []
             continue
 
-        jalur_bersih_kontol = Path(target_operasi_sia.strip().lstrip("/"))
-        if jalur_bersih_kontol.name in FILE_KERAMAT_JANGAN_DISENTUH_GOBLOG:
-            continue
+        if target_aktif is not None:
+            # Berhenti ngumpulin baris kode kalau ketemu tag komando bot atau akhir blok penjelasan
+            if re.match(r"^(@RUN:|@MKDIR:|@DELETE:|@NEXT_MD|##\s+)", brs.strip(), re.IGNORECASE):
+                hasil = _simpan_satu_file_preman(target_aktif, mode_aktif, keranjang_baris)
+                if hasil and hasil not in file_diobok_obok:
+                    file_diobok_obok.append(hasil)
+                target_aktif = None
+                keranjang_baris = []
+            else:
+                keranjang_baris.append(brs)
 
-        jalur_bersih_kontol.parent.mkdir(parents=True, exist_ok=True)
-
-        if mode_eksekusi_goblog == "SAMBUNG_BAWAH" and jalur_bersih_kontol.exists():
-            with open(jalur_bersih_kontol, "a", encoding="utf-8") as f_asu:
-                f_asu.write("\n" + jeroan_kode_anjing)
-        elif mode_eksekusi_goblog == "TAMBAL_TENGAH" and jalur_bersih_kontol.exists():
-            teks_asli_bangsat = jalur_bersih_kontol.read_text(encoding="utf-8")
-            potongan_tambalan = re.findall(
-                r"<<<SEARCH\n(.*?)\n===REPLACE\n(.*?)\n>>>END",
-                jeroan_kode_anjing,
-                re.DOTALL,
-            )
-            for blok_cari_tai, blok_ganti_anjing in potongan_tambalan:
-                if blok_cari_tai in teks_asli_bangsat:
-                    teks_asli_bangsat = teks_asli_bangsat.replace(blok_cari_tai, blok_ganti_anjing, 1)
-            jalur_bersih_kontol.write_text(teks_asli_bangsat, encoding="utf-8")
-        else:
-            jalur_bersih_kontol.write_text(jeroan_kode_anjing, encoding="utf-8")
-
-        file_diobok_obok.append(str(jalur_bersih_kontol))
-        jumlah_baris_anjing = len(jalur_bersih_kontol.read_text(encoding="utf-8", errors="ignore").splitlines())
-        print(f"🔥 [{mode_eksekusi_goblog}] {jalur_bersih_kontol} kelar disuntik kehed! (Total: {jumlah_baris_anjing:,} baris)")
+    if target_aktif:
+        hasil = _simpan_satu_file_preman(target_aktif, mode_aktif, keranjang_baris)
+        if hasil and hasil not in file_diobok_obok:
+            file_diobok_obok.append(hasil)
 
     return file_diobok_obok

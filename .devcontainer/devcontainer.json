@@ -1,0 +1,15 @@
+{
+  "name": "Markas Preman 177-Agent Monorepo",
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "files.autoSave": "afterDelay",
+        "files.autoSaveDelay": 1000,
+        "git.autofetch": true
+      }
+    }
+  },
+  "postCreateCommand": "python3 auto_repo_bot.py || true",
+  "postStartCommand": "bash scripts/nyalain_semua_preman.sh"
+}
